@@ -58,15 +58,15 @@ class DatabaseSettings(BaseSettings):
     DEPLOY_ACCESS_LOG: bool = False
 
     # 要连接的数据库名称
-    DB_NAME = 'hanxuanyuyue'
+    DB_NAME = 'event_check'
     # 数据库的端口
-    DB_PROT = 5432
+    DB_PROT = 3306
     # 连接数据库的用户
-    DB_USER = 'postgres'
+    DB_USER = 'root'
     # 连接的数据库的密码
-    DB_PASS = '123456'
+    DB_PASS = 'xsdwadrcsefbjjbshjjd'
     # 要连接的数据库的HOST
-    DB_HOST = 'localhost'
+    DB_HOST = '139.196.165.161'
 
 
     DB_MAX_CONNECTIONS = 60
@@ -185,7 +185,7 @@ def get_doc_settings():
     return DocsSettings()
 
 auth = get_auth_settings()
-pgconf = get_db_settings()
+dbconf = get_db_settings()
 # rabbitconf = get_mq_settings()
 redisconf = get_redis_settings()
 docsconf = get_doc_settings()

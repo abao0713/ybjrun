@@ -12,6 +12,9 @@ from fastapi import Cookie, Depends, FastAPI, Query, WebSocket, status, Request
 
 
 def create_app(env):
+    from apps.eventproxy.models import models
+    from apps.eventproxy.models.database import engine
+    models.Base.metadata.create_all(bind=engine)
     app = FastAPI(
         title=docsconf.TITLE,
         description=docsconf.DESC,
