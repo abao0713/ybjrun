@@ -6,208 +6,134 @@
 # @author :	pujen_yuan
 # ------------
 
+
+"""
+常用技术分析指标：MA, MACD
+"""
 import numpy as np
-from collections import OrderedDict
-from datetime import datetime
 
-from czsc import analyze
-from ..objects import Signal
-from ..enum import Freq
-from ..utils.ta import MACD, SMA
-
-
-def get_s_single_k(c: analyze.CZSC, di: int = 1) -> OrderedDict:
-    """获取倒数第i根K线的单K信号"""
-    if c.freq not in [Freq.D, Freq.W]:
-        return OrderedDict()
-
-    if len(c.bars_raw) < di:
-        return OrderedDict()
-
-    s = OrderedDict()
-    freq: Freq = c.freq
-    k1 = str(freq.value)
-    default_signals = [
-        Signal(k1=k1, k2=f"倒{di}K", k3="状态", v1="其他", v2='其他', v3='其他'),
-    ]
-    for signal in default_signals:
-        s[signal.key] = signal.value
-
-    k = c.bars_raw[-di]
-    if k.close > k.open:
-        v = Signal(k1=k1, k2=f"倒{di}K", k3="状态", v1="上涨")
-    else:
-        v = Signal(k1=k1, k2=f"倒{di}K", k3="状态", v1="下跌")
-    s[v.key] = v.value
-    return s
-
-
-def get_s_three_k(c: analyze.CZSC, di: int = 1) -> OrderedDict:
-    """倒数第i根K线的三K信号
-    :param c: CZSC 对象
-    :param di: 最近一根K线为倒数第i根
-    :return: 信号字典
+def SMA(close: np.array, timeperiod=5):
+    """简单移动平均
+    https://baike.baidu.com/item/%E7%A7%BB%E5%8A%A8%E5%B9%B3%E5%9D%87%E7%BA%BF/217887
+    :param close: np.array
+        收盘价序列
+    :param timeperiod: int
+        均线参数
+    :return: np.array
     """
-    assert di >= 1
-    freq: Freq = c.freq
-    k1 = str(freq.value)
-    k2 = f"倒{di}K"
-
-    s = OrderedDict()
-    v = Signal(k1=k1, k2=k2, k3="三K形态", v1="其他", v2='其他', v3='其他')
-    s[v.key] = v.value
-
-    if len(c.bars_ubi) < 3 + di:
-        return s
-
-    if di == 1:
-        tri = c.bars_ubi[-3:]
-    else:
-        tri = c.bars_ubi[-3 - di + 1:-di + 1]
-
-    if tri[0].high > tri[1].high < tri[2].high:
-        v = Signal(k1=k1, k2=k2, k3="三K形态", v1="底分型")
-    elif tri[0].high < tri[1].high < tri[2].high:
-        v = Signal(k1=k1, k2=k2, k3="三K形态", v1="向上走")
-    elif tri[0].high < tri[1].high > tri[2].high:
-        v = Signal(k1=k1, k2=k2, k3="三K形态", v1="顶分型")
-    elif tri[0].high > tri[1].high > tri[2].high:
-        v = Signal(k1=k1, k2=k2, k3="三K形态", v1="向下走")
-    else:
-        v = None
-
-    if v and "其他" not in v.value:
-        s[v.key] = v.value
-
-    return s
-
-
-def get_s_macd(c: analyze.CZSC, di: int = 1) -> OrderedDict:
-    """获取倒数第i根K线的MACD相关信号"""
-    freq: Freq = c.freq
-    s = OrderedDict()
-
-    k1 = str(freq.value)
-    k2 = f"倒{di}K"
-    default_signals = [
-        Signal(k1=k1, k2=k2, k3="DIF多空", v1="其他", v2='其他', v3='其他'),
-        Signal(k1=k1, k2=k2, k3="DIF方向", v1="其他", v2='其他', v3='其他'),
-
-        Signal(k1=k1, k2=k2, k3="DEA多空", v1="其他", v2='其他', v3='其他'),
-        Signal(k1=k1, k2=k2, k3="DEA方向", v1="其他", v2='其他', v3='其他'),
-
-        Signal(k1=k1, k2=k2, k3="MACD多空", v1="其他", v2='其他', v3='其他'),
-        Signal(k1=k1, k2=k2, k3="MACD方向", v1="其他", v2='其他', v3='其他'),
-    ]
-    for signal in default_signals:
-        s[signal.key] = signal.value
-
-    if len(c.bars_raw) < 100:
-        return s
-
-    if di == 1:
-        close = np.array([x.close for x in c.bars_raw[-100:]])
-    else:
-        close = np.array([x.close for x in c.bars_raw[-100-di+1:-di+1]])
-    dif, dea, macd = MACD(close, fastperiod=12, slowperiod=26, signalperiod=9)
-
-    # DIF 多空信号
-    dif_base = sum([abs(dif[-2] - dif[-1]), abs(dif[-3] - dif[-2]), abs(dif[-4] - dif[-3])]) / 3
-    if dif[-1] > dif_base:
-        v = Signal(k1=k1, k2=k2, k3="DIF多空", v1="多头")
-    elif dif[-1] < -dif_base:
-        v = Signal(k1=k1, k2=k2, k3="DIF多空", v1="空头")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="DIF多空", v1="模糊")
-    s[v.key] = v.value
-
-    if dif[-1] > dif[-2] > dif[-3]:
-        v = Signal(k1=k1, k2=k2, k3="DIF方向", v1="向上")
-    elif dif[-1] < dif[-2] < dif[-3]:
-        v = Signal(k1=k1, k2=k2, k3="DIF方向", v1="向下")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="DIF方向", v1="模糊")
-    s[v.key] = v.value
-
-    # DEA 多空信号
-    dea_base = sum([abs(dea[-2] - dea[-1]), abs(dea[-3] - dea[-2]), abs(dea[-4] - dea[-3])]) / 3
-    if dea[-1] > dea_base:
-        v = Signal(k1=k1, k2=k2, k3="DEA多空", v1="多头")
-    elif dea[-1] < -dea_base:
-        v = Signal(k1=k1, k2=k2, k3="DEA多空", v1="空头")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="DEA多空", v1="模糊")
-    s[v.key] = v.value
-
-    # DEA 方向信号
-    if dea[-1] > dea[-2]:
-        v = Signal(k1=k1, k2=k2, k3="DEA方向", v1="向上")
-    elif dea[-1] < dea[-2]:
-        v = Signal(k1=k1, k2=k2, k3="DEA方向", v1="向下")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="DEA方向", v1="模糊")
-    s[v.key] = v.value
-
-    # MACD 多空信号
-    if macd[-1] >= 0:
-        v = Signal(k1=k1, k2=k2, k3="MACD多空", v1="多头")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="MACD多空", v1="空头")
-    s[v.key] = v.value
-
-    # MACD 方向信号
-    if macd[-1] > macd[-2] > macd[-3]:
-        v = Signal(k1=k1, k2=k2, k3="MACD方向", v1="向上")
-    elif macd[-1] < macd[-2] < macd[-3]:
-        v = Signal(k1=k1, k2=k2, k3="MACD方向", v1="向下")
-    else:
-        v = Signal(k1=k1, k2=k2, k3="MACD方向", v1="模糊")
-    s[v.key] = v.value
-    return s
-
-
-def get_s_sma(c: analyze.CZSC, di: int = 1, t_seq=(5, 10, 20, 60)) -> OrderedDict:
-    """获取倒数第i根K线的SMA相关信号"""
-    freq: Freq = c.freq
-    s = OrderedDict()
-
-    k1 = str(freq.value)
-    k2 = f"倒{di}K"
-    for t in t_seq:
-        x1 = Signal(k1=k1, k2=k2, k3=f"SMA{t}多空", v1="其他", v2='其他', v3='其他')
-        x2 = Signal(k1=k1, k2=k2, k3=f"SMA{t}方向", v1="其他", v2='其他', v3='其他')
-        s[x1.key] = x1.value
-        s[x2.key] = x2.value
-
-    if len(c.bars_raw) < 100:
-        return s
-
-    if di == 1:
-        close = np.array([x.close for x in c.bars_raw[-100:]])
-    else:
-        close = np.array([x.close for x in c.bars_raw[-100-di+1:-di+1]])
-
-    for t in t_seq:
-        sma = SMA(close, timeperiod=t)
-        if close[-1] >= sma[-1]:
-            v1 = Signal(k1=k1, k2=k2, k3=f"SMA{t}多空", v1="多头")
+    res = []
+    for i in range(len(close)):
+        if i < timeperiod:
+            seq = close[0: i+1]
         else:
-            v1 = Signal(k1=k1, k2=k2, k3=f"SMA{t}多空", v1="空头")
-        s[v1.key] = v1.value
+            seq = close[i - timeperiod + 1: i + 1]
+        res.append(seq.mean())
+    return np.array(res, dtype=np.double).round(4)
 
-        if sma[-1] >= sma[-2]:
-            v2 = Signal(k1=k1, k2=k2, k3=f"SMA{t}方向", v1="向上")
+def EMA(close: np.array, timeperiod=5):
+    """
+    https://baike.baidu.com/item/EMA/12646151
+    :param close: np.array
+        收盘价序列
+    :param timeperiod: int
+        均线参数
+    :return: np.array
+    """
+    res = []
+    for i in range(len(close)):
+        if i < 1:
+            res.append(close[i])
         else:
-            v2 = Signal(k1=k1, k2=k2, k3=f"SMA{t}方向", v1="向下")
-        s[v2.key] = v2.value
-    return s
+            ema = (2 * close[i] + res[i-1] * (timeperiod-1)) / (timeperiod+1)
+            res.append(ema)
+    return np.array(res, dtype=np.double).round(4)
 
+def MACD(close: np.array, fastperiod=12, slowperiod=26, signalperiod=9):
+    """MACD 异同移动平均线
+    https://baike.baidu.com/item/MACD%E6%8C%87%E6%A0%87/6271283
+    :param close: np.array
+        收盘价序列
+    :param fastperiod: int
+        快周期，默认值 12
+    :param slowperiod: int
+        慢周期，默认值 26
+    :param signalperiod: int
+        信号周期，默认值 9
+    :return: (np.array, np.array, np.array)
+        diff, dea, macd
+    """
+    ema12 = EMA(close, timeperiod=fastperiod)
+    ema26 = EMA(close, timeperiod=slowperiod)
+    diff = ema12 - ema26
+    dea = EMA(diff, timeperiod=signalperiod)
+    macd = (diff - dea) * 2
+    return diff.round(4), dea.round(4), macd.round(4)
 
+def KDJ(close: np.array, high: np.array, low: np.array):
+    """
+    :param close: 收盘价序列
+    :param high: 最高价序列
+    :param low: 最低价序列
+    :return:
+    """
+    n = 9
+    hv = []
+    lv = []
+    for i in range(len(close)):
+        if i < n:
+            h_ = high[0: i+1]
+            l_ = low[0: i+1]
+        else:
+            h_ = high[i - n + 1: i + 1]
+            l_ = low[i - n + 1: i + 1]
+        hv.append(max(h_))
+        lv.append(min(l_))
 
+    hv = np.around(hv, decimals=2)
+    lv = np.around(lv, decimals=2)
+    rsv = np.where(hv == lv, 0, (close - lv) / (hv - lv) * 100)
 
+    k = []
+    d = []
+    j = []
+    for i in range(len(rsv)):
+        if i < n:
+            k_ = rsv[i]
+            d_ = k_
+        else:
+            k_ = (2 / 3) * k[i-1] + (1 / 3) * rsv[i]
+            d_ = (2 / 3) * d[i-1] + (1 / 3) * k_
 
+        k.append(k_)
+        d.append(d_)
+        j.append(3 * k_ - 2 * d_)
 
+    k = np.array(k, dtype=np.double)
+    d = np.array(d, dtype=np.double)
+    j = np.array(j, dtype=np.double)
+    return k.round(4), d.round(4), j.round(4)
 
+def RSQ(close: [np.array, list]) -> float:
+    """拟合优度 R SQuare
+    :param close: 收盘价序列
+    :return:
+    """
+    x = list(range(len(close)))
+    y = np.array(close)
+    x_squred_sum = sum([x1 * x1 for x1 in x])
+    xy_product_sum = sum([x[i] * y[i] for i in range(len(x))])
+    num = len(x)
+    x_sum = sum(x)
+    y_sum = sum(y)
+    delta = float(num * x_squred_sum - x_sum * x_sum)
+    if delta == 0:
+        return 0
+    y_intercept = (1 / delta) * (x_squred_sum * y_sum - x_sum * xy_product_sum)
+    slope = (1 / delta) * (num * xy_product_sum - x_sum * y_sum)
 
+    y_mean = np.mean(y)
+    ss_tot = sum([(y1 - y_mean) * (y1 - y_mean) for y1 in y]) + 0.00001
+    ss_err = sum([(y[i] - slope * x[i] - y_intercept) * (y[i] - slope * x[i] - y_intercept) for i in range(len(x))])
+    rsq = 1 - ss_err / ss_tot
 
-
+    return round(rsq, 4)

@@ -15,7 +15,7 @@ from pyecharts.charts import HeatMap, Kline, Line, Bar, Scatter, Grid, Boxplot
 from pyecharts.commons.utils import JsCode
 from typing import List
 import numpy as np
-from .ta import SMA, MACD
+from apps.eventstock.util.signal import SMA, MACD
 
 
 def heat_map(data: List[dict],

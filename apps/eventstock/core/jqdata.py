@@ -19,11 +19,10 @@ from datetime import datetime, timedelta
 from typing import List, Callable
 from urllib.parse import quote
 
-from ..objects import RawBar, Event
-from ..enum import Freq
-from .base import freq_inv
-from ..utils.bar_generator import freq_end_time
-from ..signals.signals import get_default_signals
+from apps.eventstock.core.object import RawBar, Event
+from apps.eventstock.util.enum import Freq
+from apps.eventstock.util.bar_generator import freq_end_time
+
 
 
 url = "https://dataapi.joinquant.com/apis"
